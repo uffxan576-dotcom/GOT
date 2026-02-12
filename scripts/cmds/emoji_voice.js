@@ -65,9 +65,12 @@ longDescription: "One emoji triggers multiple voices, sent randomly 😘",
       "😒": ["https://files.catbox.moe/mt5il0.mp3"],
       "😓": ["https://files.catbox.moe/zh3mdg.mp3"],
       "🤧": ["https://files.catbox.moe/zh3mdg.mp3"],
-      "🙄": ["https://files.catbox.moe/vgzkeu.mp3"]
-
-    };
+      "🙄": ["https://files.catbox.moe/vgzkeu.mp3"],
+      "🫶":
+["https://files.catbox.moe/egturw.mp3"],
+      "👍":
+["https://files.catbox.moe/95rjvr.mp3"],
+ };
 
     const emoji = body.trim();
     const audioList = emojiAudioMap[emoji];
