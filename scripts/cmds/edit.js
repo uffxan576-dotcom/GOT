@@ -1,84 +1,63 @@
 const axios = require("axios");
-const fs = require("fs");
-const path = require("path");
-
-// Renz API JSON
-const noobcore = "https://raw.githubusercontent.com/noobcore404/NC-STORE/main/NCApiUrl.json";
-
-async function getRenzApi() {
-  const res = await axios.get(noobcore, { timeout: 10000 });
-  if (!res.data?.renz) throw new Error("Renz API not found in JSON");
-  return res.data.renz;
-}
 
 module.exports = {
-  config: {
-    name: "edit",
-    aliases: ["nanobanana", "gptimage"],
-    version: "1.0",
-    author: "rX x AKASH",
-    countDown: 5,
-    role: 0,
-    shortDescription: "Generate or edit images using text prompts",
-    category: "image",
-    guide: "{pn} <prompt> | Reply to an image with your prompt"
-  },
+config: {
+name: "edit",
+aliases: ["imgedit"],
+version: "2.4",
+author: "Neoaz ゐ", //API by RIFAT
+countDown: 15,
+role: 0,
+shortDescription: { en: "Edit image with Seedream V4" },
+longDescription: { en: "Edit or modify an existing image using Seedream V4 Edit AI model" },
+category: "image",
+guide: {
+en: "Reply to an image with: {pn} <prompt>"
+}
+},
 
-  onStart: async function ({ api, event, args }) {
-    const { threadID, messageID, messageReply } = event;
-    const prompt = args.join(" ").trim();
+onStart: async function ({ message, event, api, args }) {
+const hasPhotoReply = event.type === "message_reply" && event.messageReply?.attachments?.[0]?.type === "photo";
 
-    if (!prompt) {
-      return api.sendMessage(
-        "❌ Pʟᴇᴀsᴇ ᴘʀᴏᴠɪᴅᴇ ᴀ ᴘʀᴏᴍᴘᴛ.\n\nExamples:\n!gptgen a cyberpunk city\n!gptgen make me anime (reply to an image)",
-        threadID,
-        messageID
-      );
-    }
+if (!hasPhotoReply) {
+return message.reply("Please reply to an image to edit.");
+}
 
-    const loadingMsg = await api.sendMessage("⏳ Pʀᴏᴄᴇssɪɴɢ ʏᴏᴜʀ ɪᴍᴀɢᴇ...", threadID);
+const prompt = args.join(" ").trim();
+if (!prompt) {
+return message.reply("Please provide a prompt.");
+}
 
-    const imgPath = path.join(__dirname, "cache", `${Date.now()}_gptgen.png`);
+const model = "seedream v4 edit";
+const imageUrl = event.messageReply.attachments[0].url;
 
-    try {
-      const BASE_URL = await getRenzApi();
-      let apiURL = `${BASE_URL}/api/gptimage?prompt=${encodeURIComponent(prompt)}`;
+try {
+api.setMessageReaction("⏳", event.messageID, () => {}, true);
 
-      if (messageReply?.attachments?.[0]?.type === "photo") {
-        const repliedImage = messageReply.attachments[0];
-        apiURL += `&ref=${encodeURIComponent(repliedImage.url)}`;
-        if (repliedImage.width && repliedImage.height) {
-          apiURL += `&width=${repliedImage.width}&height=${repliedImage.height}`;
-        }
-      } else {
-        apiURL += `&width=512&height=512`;
-      }
+const res = await axios.get("https://fluxcdibai-1.onrender.com/generate", {
+params: { prompt, model, imageUrl },
+timeout: 120000
+});
 
-      const res = await axios.get(apiURL, {
-        responseType: "arraybuffer",
-        timeout: 180000
-      });
+const data = res.data;
+const resultUrl = data?.data?.imageResponseVo?.url;
 
-      fs.mkdirSync(path.dirname(imgPath), { recursive: true });
-      fs.writeFileSync(imgPath, res.data);
+if (!resultUrl) {
+api.setMessageReaction("❌", event.messageID, () => {}, true);
+return message.reply("Failed to edit image.");
+}
 
-      await api.unsendMessage(loadingMsg.messageID);
+api.setMessageReaction("✅", event.messageID, () => {}, true);
 
-      await api.sendMessage(
-        {
-          body: messageReply?.attachments?.[0]
-            ? `🖌 Image edited successfully.\nPrompt: ${prompt}`
-            : `🖼 Image generated successfully.\nPrompt: ${prompt}`,
-          attachment: fs.createReadStream(imgPath)
-        },
-        threadID,
-        () => fs.unlinkSync(imgPath)
-      );
+await message.reply({
+body: "Image edited 🐦",
+attachment: await global.utils.getStreamFromURL(resultUrl)
+});
 
-    } catch (err) {
-      console.error("GPTGEN Error:", err?.response?.data || err.message);
-      await api.unsendMessage(loadingMsg.messageID);
-      api.sendMessage("❌ Fᴀɪʟᴇᴅ ᴛᴏ ᴘʀᴏᴄᴇss ɪᴍᴀɢᴇ. Pʟᴇᴀsᴇ ᴛʀʏ ᴀɢᴀɪɴ ʟᴀᴛᴇʀ.", threadID);
-    }
-  }
+} catch (err) {
+console.error(err);
+api.setMessageReaction("❌", event.messageID, () => {}, true);
+return message.reply("Error while editing image.");
+}
+}
 };
